@@ -2,6 +2,7 @@
 
 @{
     ViewData["Title"] = Model.Product.ProductName;
+    ViewBag.ChatProductId = Model.Product.ProductId;
 }
 
 <div class="container-fluid px-lg-5 mt-4">
@@ -51,6 +52,170 @@
         </div>
     </div>
 
+    </div>
+
+    <!-- Review Section -->
+    <div class="row mt-5">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm rounded-4">
+                <div class="card-body p-4 p-lg-5">
+                    <h3 class="fw-bold mb-4 border-bottom pb-3">Đánh giá sản phẩm (@Model.TotalReviews)</h3>
+                    
+                    <div class="row">
+                        <!-- Rating Summary & Form -->
+                        <div class="col-lg-4 mb-4 mb-lg-0 border-end pe-lg-4">
+                            <div class="text-center mb-4">
+                                <h1 class="display-3 fw-bold text-dark mb-0">@Model.AverageRating.ToString("0.0")</h1>
+                                <div class="text-warning fs-4 mb-2">
+                                    @for (int i = 1; i <= 5; i++)
+                                    {
+                                        if (i <= Math.Round(Model.AverageRating)) { <span>★</span> }
+                                        else { <span class="text-light">★</span> }
+                                    }
+                                </div>
+                                <p class="text-muted">Dựa trên @Model.TotalReviews đánh giá</p>
+                            </div>
+
+                            @if (User.Identity?.IsAuthenticated == true)
+                            {
+                                if (!Model.HasUserReviewed)
+                                {
+                                    <div class="bg-light p-4 rounded-4 mt-4">
+                                        <h5 class="fw-bold mb-3">Viết đánh giá của bạn</h5>
+                                        <form asp-action="AddReview" method="post">
+                                            @Html.AntiForgeryToken()
+                                            <input type="hidden" name="ProductId" value="@Model.Product.ProductId" />
+                                            
+                                            <div class="mb-3">
+                                                <label class="form-label text-muted small">Đánh giá sao</label>
+                                                <div class="star-rating mb-2" style="font-size: 1.5rem; color: #ccc; cursor: pointer; display: flex; flex-direction: row-reverse; justify-content: flex-end;">
+                                                    <input type="radio" name="Rating" id="star5" value="5" class="d-none" required /><label for="star5" title="5 sao" class="star-label">★</label>
+                                                    <input type="radio" name="Rating" id="star4" value="4" class="d-none" /><label for="star4" title="4 sao" class="star-label">★</label>
+                                                    <input type="radio" name="Rating" id="star3" value="3" class="d-none" /><label for="star3" title="3 sao" class="star-label">★</label>
+                                                    <input type="radio" name="Rating" id="star2" value="2" class="d-none" /><label for="star2" title="2 sao" class="star-label">★</label>
+                                                    <input type="radio" name="Rating" id="star1" value="1" class="d-none" /><label for="star1" title="1 sao" class="star-label">★</label>
+                                                </div>
+                                            </div>
+
+                                            <div class="mb-3">
+                                                <input type="text" name="Title" class="form-control rounded-pill" placeholder="Tiêu đề (Tùy chọn)" />
+                                            </div>
+
+                                            <div class="mb-3">
+                                                <textarea name="Content" class="form-control rounded-4" rows="3" placeholder="Chia sẻ cảm nhận của bạn về sản phẩm này..." required></textarea>
+                                            </div>
+
+                                            <button type="submit" class="btn btn-pink rounded-pill w-100 py-2 fw-bold">Gửi đánh giá</button>
+                                        </form>
+                                    </div>
+                                }
+                                else
+                                {
+                                    var myReview = Model.Reviews.FirstOrDefault(r => r.IsOwnReview);
+                                    <div class="bg-light p-4 rounded-4 mt-4">
+                                        <h5 class="fw-bold mb-3">Chỉnh sửa đánh giá của bạn</h5>
+                                        <form asp-action="EditReview" method="post">
+                                            @Html.AntiForgeryToken()
+                                            <input type="hidden" name="ProductId" value="@Model.Product.ProductId" />
+                                            <input type="hidden" name="ReviewId" value="@(myReview?.ReviewId ?? 0)" />
+                                            
+                                            <div class="mb-3">
+                                                <label class="form-label text-muted small">Đánh giá sao</label>
+                                                <div class="star-rating mb-2" style="font-size: 1.5rem; color: #ccc; cursor: pointer; display: flex; flex-direction: row-reverse; justify-content: flex-end;">
+                                                    <input type="radio" name="Rating" id="edit-star5" value="5" class="d-none" @(myReview?.Rating == 5 ? "checked" : "") required /><label for="edit-star5" title="5 sao" class="star-label">★</label>
+                                                    <input type="radio" name="Rating" id="edit-star4" value="4" class="d-none" @(myReview?.Rating == 4 ? "checked" : "") /><label for="edit-star4" title="4 sao" class="star-label">★</label>
+                                                    <input type="radio" name="Rating" id="edit-star3" value="3" class="d-none" @(myReview?.Rating == 3 ? "checked" : "") /><label for="edit-star3" title="3 sao" class="star-label">★</label>
+                                                    <input type="radio" name="Rating" id="edit-star2" value="2" class="d-none" @(myReview?.Rating == 2 ? "checked" : "") /><label for="edit-star2" title="2 sao" class="star-label">★</label>
+                                                    <input type="radio" name="Rating" id="edit-star1" value="1" class="d-none" @(myReview?.Rating == 1 ? "checked" : "") /><label for="edit-star1" title="1 sao" class="star-label">★</label>
+                                                </div>
+                                            </div>
+
+                                            <div class="mb-3">
+                                                <input type="text" name="Title" class="form-control rounded-pill" placeholder="Tiêu đề (Tùy chọn)" value="@myReview?.Title" />
+                                            </div>
+
+                                            <div class="mb-3">
+                                                <textarea name="Content" class="form-control rounded-4" rows="3" placeholder="Chia sẻ cảm nhận của bạn về sản phẩm này..." required>@myReview?.Content</textarea>
+                                            </div>
+
+                                            <button type="submit" class="btn btn-pink rounded-pill w-100 py-2 fw-bold">Cập nhật đánh giá</button>
+                                        </form>
+                                    </div>
+                                }
+                            }
+                            else
+                            {
+                                <div class="bg-light p-4 rounded-4 mt-4 text-center">
+                                    <p class="text-muted mb-3">Đăng nhập để để lại đánh giá của bạn.</p>
+                                    <a href="/Identity/Account/Login?returnUrl=/Products/Details/@Model.Product.ProductId" class="btn btn-outline-dark rounded-pill px-4">Đăng nhập ngay</a>
+                                </div>
+                            }
+                        </div>
+
+                        <!-- Review List -->
+                        <div class="col-lg-8 ps-lg-4">
+                            @if (Model.Reviews.Any())
+                            {
+                                <div class="review-list" style="max-height: 600px; overflow-y: auto;">
+                                    @foreach (var review in Model.Reviews)
+                                    {
+                                        <div class="review-item mb-4 pb-4 border-bottom @(review.IsOwnReview ? "bg-light p-3 rounded-4" : "")">
+                                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                                <div>
+                                                    <div class="d-flex align-items-center mb-1">
+                                                        <div class="avatar bg-pink text-white rounded-circle d-flex align-items-center justify-content-center me-2 fw-bold" style="width: 36px; height: 36px;">
+                                                            @review.UserName.Substring(0, 1).ToUpper()
+                                                        </div>
+                                                        <div>
+                                                            <strong class="d-block lh-1 mb-1">@review.UserName</strong>
+                                                            <small class="text-muted">@review.CreatedAt.ToString("dd/MM/yyyy HH:mm")</small>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div class="text-end">
+                                                    <div class="text-warning mb-1">
+                                                        @for (int i = 1; i <= 5; i++)
+                                                        {
+                                                            if (i <= review.Rating) { <span>★</span> }
+                                                            else { <span class="text-light">★</span> }
+                                                        }
+                                                    </div>
+                                                    @if (review.IsOwnReview)
+                                                    {
+                                                        <form asp-action="DeleteReview" method="post" class="d-inline" onsubmit="return confirm('Bạn có chắc muốn xóa đánh giá này?');">
+                                                            @Html.AntiForgeryToken()
+                                                            <input type="hidden" name="reviewId" value="@review.ReviewId" />
+                                                            <input type="hidden" name="productId" value="@Model.Product.ProductId" />
+                                                            <button type="submit" class="btn btn-sm btn-link text-danger p-0 text-decoration-none">Xóa</button>
+                                                        </form>
+                                                    }
+                                                </div>
+                                            </div>
+                                            
+                                            @if (!string.IsNullOrEmpty(review.Title))
+                                            {
+                                                <h6 class="fw-bold mt-2">@review.Title</h6>
+                                            }
+                                            <p class="mb-0 text-secondary">@review.Content</p>
+                                        </div>
+                                    }
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="text-center p-5">
+                                    <i class="bi bi-chat-square-text text-muted" style="font-size: 3rem; opacity: 0.5;"></i>
+                                    <h5 class="text-muted mt-3">Chưa có đánh giá nào</h5>
+                                    <p class="text-secondary mb-0">Hãy là người đầu tiên đánh giá sản phẩm này!</p>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
 @if (Model.SimilarProducts.Any())
 {
     <div class="container-fluid px-lg-5 mt-5 mb-4">
@@ -60,20 +225,20 @@
             {
                 <div class="col-lg-2 col-md-3 col-sm-4 col-6">
                     <a class="text-decoration-none text-dark" asp-controller="Products" asp-action="Details" asp-route-id="@product.ProductId">
-                        <div class="card h-100 shadow-sm product-card">
-                            <div class="product-image-wrapper" style="height: 200px; overflow: hidden;">
+                        <div class="card h-100 shadow-sm product-card border-0 rounded-4 overflow-hidden">
+                            <div class="product-image-wrapper" style="height: 200px; overflow: hidden; background-color: #f8f9fa;">
                                 @if (!string.IsNullOrEmpty(product.Image))
                                 {
-                                    <img src="@product.Image" class="card-img-top" alt="@product.ProductName" style="height: 100%; object-fit: cover;">
+                                    <img src="@product.Image" class="card-img-top w-100 h-100 object-fit-cover" alt="@product.ProductName">
                                 }
                                 else
                                 {
-                                    <img src="~/images/no-image.png" class="card-img-top" alt="No Image" style="height: 100%; object-fit: cover;">
+                                    <img src="~/images/no-image.png" class="card-img-top w-100 h-100 object-fit-cover" alt="No Image">
                                 }
                             </div>
-                            <div class="card-body text-center">
-                                <h6 class="card-title text-truncate mb-2">@product.ProductName</h6>
-                                <p class="mb-0 text-success fw-bold">@product.Price.ToString("N0") đ</p>
+                            <div class="card-body text-center p-3">
+                                <h6 class="card-title text-truncate mb-2 fw-bold text-dark">@product.ProductName</h6>
+                                <p class="mb-0 text-pink fw-bold">@product.Price.ToString("N0") đ</p>
                             </div>
                         </div>
                     </a>
@@ -83,6 +248,18 @@
     </div>
 }
 </div>
+
+<style>
+    /* Star Rating interactions */
+    .star-rating .star-label {
+        transition: color 0.2s;
+    }
+    .star-rating input:checked ~ label,
+    .star-rating label:hover,
+    .star-rating label:hover ~ label {
+        color: #ffc107 !important;
+    }
+</style>
 
 <script>
     function addToCartFromDetails(productId) {

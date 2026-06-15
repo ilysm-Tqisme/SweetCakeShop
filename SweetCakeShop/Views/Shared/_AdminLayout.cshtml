@@ -1,57 +1,48 @@
 <!DOCTYPE html>
-<html lang="en">
-
+<html lang="vi">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>@ViewData["Title"] - Admin</title>
+    <title>@ViewData["Title"] - SweetCakeShop Admin</title>
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/admin-dashboard.css" asp-append-version="true" />
 </head>
-
-<body class="bg-light">
+<body class="admin-body">
     <div class="container-fluid">
-        <div class="row min-vh-100">
-            <aside class="col-12 col-md-3 col-lg-2 bg-white border-end p-3">
-                <h5 class="mb-4">Admin Panel</h5>
-                <ul class="nav flex-column gap-1">
-                    <li class="nav-item">
-                        <a class="nav-link @(ViewContext.RouteData.Values["action"]?.ToString() == "Index" ? "active fw-semibold" : "text-dark")"
-                               asp-controller="Home" asp-action="Index">
-                            Trang chủ
-                        </a>
-                        <a class="nav-link @((ViewContext.RouteData.Values["action"]?.ToString() == "Orders" || ViewContext.RouteData.Values["action"]?.ToString() == "OrderDetails") ? "active fw-semibold" : "text-dark")"
-                           asp-controller="Admin" asp-action="Orders">
-                            Xem Orders
-                        </a>
-                        <a class="nav-link @(ViewContext.RouteData.Values["action"]?.ToString() == "Categories" ? "active fw-semibold" : "text-dark")"
-                           asp-controller="Admin" asp-action="Categories">
-                            Danh mục
-                        </a>
-                        <a class="nav-link @(ViewContext.RouteData.Values["action"]?.ToString() == "Ingredients" ? "active fw-semibold" : "text-dark")"
-                               asp-controller="Admin" asp-action="Ingredients">
-                            Xem Nguyên liệu tồn kho
-                        </a>
-                        <a class="nav-link @(ViewContext.RouteData.Values["action"]?.ToString() == "Products" ? "active fw-semibold" : "text-dark")"
-                           asp-controller="Admin" asp-action="Products">
-                            Xem số lượng bánh có thể làm
-                        </a>
-                        <a class="nav-link @(ViewContext.RouteData.Values["action"]?.ToString() == "TopSellingProducts" ? "active fw-semibold" : "text-dark")"
-                           asp-controller="Admin" asp-action="TopSellingProducts">
-                            Bánh bán chạy nhất
-                        </a>
-                    </li>
-                </ul>
+        <div class="row">
+            <aside class="col-12 col-md-3 col-lg-2 admin-sidebar">
+                <a class="brand" asp-controller="AdminDashboard" asp-action="Index">SweetCakeShop</a>
+                <small class="text-white-50 d-block mb-3">Admin Console</small>
+                <nav class="nav flex-column">
+                    <a class="nav-link @(ViewContext.RouteData.Values["controller"]?.ToString() == "AdminDashboard" ? "active" : "")"
+                       asp-controller="AdminDashboard" asp-action="Index">Dashboard</a>
+                    <a class="nav-link @((ViewContext.RouteData.Values["action"]?.ToString() == "Orders" || ViewContext.RouteData.Values["action"]?.ToString() == "OrderDetails") ? "active" : "")"
+                       asp-controller="Admin" asp-action="Orders">Đơn hàng</a>
+                    <a class="nav-link @(ViewContext.RouteData.Values["action"]?.ToString() == "Products" ? "active" : "")"
+                       asp-controller="Admin" asp-action="Products">Sản phẩm & Kho</a>
+                    <a class="nav-link @(ViewContext.RouteData.Values["action"]?.ToString() == "Categories" ? "active" : "")"
+                       asp-controller="Admin" asp-action="Categories">Danh mục</a>
+                    <a class="nav-link @(ViewContext.RouteData.Values["action"]?.ToString() == "Ingredients" ? "active" : "")"
+                       asp-controller="Admin" asp-action="Ingredients">Nguyên liệu</a>
+                    <a class="nav-link @((ViewContext.RouteData.Values["action"]?.ToString() == "Coupons" || ViewContext.RouteData.Values["action"]?.ToString() == "CreateCoupon") ? "active" : "")"
+                       asp-controller="Admin" asp-action="Coupons">Mã giảm giá</a>
+                    <a class="nav-link @(ViewContext.RouteData.Values["action"]?.ToString() == "TopSellingProducts" ? "active" : "")"
+                       asp-controller="Admin" asp-action="TopSellingProducts">Bán chạy</a>
+                    <hr class="border-secondary opacity-25" />
+                    <a class="nav-link" asp-controller="Home" asp-action="Index">Về trang chủ</a>
+                </nav>
             </aside>
-
-            <main class="col-12 col-md-9 col-lg-10 p-3 p-md-4">
+            <main class="col-12 col-md-9 col-lg-10 admin-main">
                 @RenderBody()
             </main>
         </div>
     </div>
 
+    @await Html.PartialAsync("_AdminChatWidget")
+
     <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     @await RenderSectionAsync("Scripts", required: false)
 </body>
-
 </html>

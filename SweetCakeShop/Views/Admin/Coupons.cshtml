@@ -1,0 +1,100 @@
+@model IEnumerable<SweetCakeShop.Models.Coupon>
+
+@{
+    ViewData["Title"] = "Quản lý Mã giảm giá";
+    Layout = "~/Views/Shared/_AdminLayout.cshtml";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>Quản lý Mã giảm giá</h2>
+    <a asp-action="CreateCoupon" class="btn btn-primary"><i class="bi bi-plus-circle me-1"></i> Tạo mã mới</a>
+</div>
+
+<div class="card shadow-sm">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>Mã CODE</th>
+                        <th>Loại giảm</th>
+                        <th>Giá trị</th>
+                        <th>Thời hạn</th>
+                        <th>Số lượng đã dùng</th>
+                        <th>Trạng thái</th>
+                        <th class="text-end">Hành động</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var item in Model)
+                    {
+                        <tr>
+                            <td><span class="badge bg-secondary fs-6">@item.Code</span></td>
+                            <td>
+                                @if (item.DiscountType == SweetCakeShop.Models.DiscountType.Percentage)
+                                {
+                                    <span class="badge bg-info">Phần trăm</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-success">Số tiền</span>
+                                }
+                            </td>
+                            <td>
+                                @if (item.DiscountType == SweetCakeShop.Models.DiscountType.Percentage)
+                                {
+                                    <span>@item.DiscountValue.ToString("0.##")%</span>
+                                    @if (item.MaxDiscountAmount > 0)
+                                    {
+                                        <br /><small class="text-muted">Tối đa @item.MaxDiscountAmount.ToString("N0")₫</small>
+                                    }
+                                }
+                                else
+                                {
+                                    <span>@item.DiscountValue.ToString("N0")₫</span>
+                                }
+                            </td>
+                            <td>
+                                <small>
+                                    Từ: @item.ValidFrom.ToString("dd/MM/yyyy")<br />
+                                    Đến: @item.ValidTo.ToString("dd/MM/yyyy")
+                                </small>
+                            </td>
+                            <td>
+                                @item.CurrentUsageCount / @(item.MaxUsageCount > 0 ? item.MaxUsageCount.ToString() : "∞")
+                            </td>
+                            <td>
+                                @if (item.IsActive && item.ValidTo >= DateTime.Now && (item.MaxUsageCount == 0 || item.CurrentUsageCount < item.MaxUsageCount))
+                                {
+                                    <span class="badge bg-success">Đang hoạt động</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-danger">Hết hạn/Khóa</span>
+                                }
+                            </td>
+                            <td class="text-end">
+                                <form asp-action="ToggleCouponStatus" asp-route-id="@item.CouponId" method="post" class="d-inline">
+                                    <button type="submit" class="btn btn-sm @(item.IsActive ? "btn-outline-warning" : "btn-outline-success")" title="@(item.IsActive ? "Khóa mã" : "Kích hoạt mã")">
+                                        <i class="bi @(item.IsActive ? "bi-lock" : "bi-unlock")"></i>
+                                    </button>
+                                </form>
+                                <form asp-action="DeleteCoupon" asp-route-id="@item.CouponId" method="post" class="d-inline" onsubmit="return confirm('Bạn có chắc muốn xóa mã giảm giá này?');">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger" title="Xóa">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+            @if (!Model.Any())
+            {
+                <div class="text-center py-4 text-muted">
+                    <p>Chưa có mã giảm giá nào.</p>
+                </div>
+            }
+        </div>
+    </div>
+</div>

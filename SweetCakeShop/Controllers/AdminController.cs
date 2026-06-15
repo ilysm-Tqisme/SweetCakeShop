@@ -1,9 +1,11 @@
-﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using SweetCakeShop.Constants;
 using SweetCakeShop.Data;
 using SweetCakeShop.Models;
+using SweetCakeShop.Services;
+using SweetCakeShop.Models.ViewModels;
 
 namespace SweetCakeShop.Controllers
 {
@@ -12,17 +14,16 @@ namespace SweetCakeShop.Controllers
     {
         private readonly ApplicationDbContext _context;
         private readonly IWebHostEnvironment _env;
+        private readonly ICouponService _couponService;
 
-        public AdminController(ApplicationDbContext context, IWebHostEnvironment env)
+        public AdminController(ApplicationDbContext context, IWebHostEnvironment env, ICouponService couponService)
         {
             _context = context;
             _env = env;
+            _couponService = couponService;
         }
 
-        public IActionResult Dashboard()
-        {
-            return View();
-        }
+        public IActionResult Dashboard() => RedirectToAction("Index", "AdminDashboard");
 
         [HttpGet]
         public async Task<IActionResult> TopSellingProducts()
@@ -31,7 +32,7 @@ namespace SweetCakeShop.Controllers
                 (from od in _context.OrderDetails.AsNoTracking()
                  join o in _context.Orders.AsNoTracking() on od.OrderId equals o.OrderId
                  join p in _context.Products.AsNoTracking() on od.ProductId equals p.ProductId
-                 where o.Status == "Confirmed" || o.Status == "confirmed"
+                 where o.ConfirmedAt != null && OrderStatuses.RevenueEligibleStatuses.Contains(o.Status)
                  group new { od, o, p } by new { od.ProductId, p.ProductName } into g
                  orderby g.Sum(x => x.od.Quantity) descending, g.Key.ProductName
                  select new AdminTopSellingProductViewModel
@@ -85,7 +86,7 @@ namespace SweetCakeShop.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> UpdateOrderStatus(int orderId, string status)
         {
-            var validStatuses = new[] { "Pending", "Confirmed", "Shipped", "Delivered", "Cancelled" };
+            var validStatuses = new[] { "Pending", "Confirmed", "Shipped", "Delivered", "Completed", "Cancelled" };
             if (!validStatuses.Contains(status))
             {
                 TempData["Error"] = "Trạng thái không hợp lệ";
@@ -100,6 +101,14 @@ namespace SweetCakeShop.Controllers
             }
 
             order.Status = status;
+
+            if ((string.Equals(status, OrderStatuses.Confirmed, StringComparison.OrdinalIgnoreCase)
+                 || string.Equals(status, OrderStatuses.Completed, StringComparison.OrdinalIgnoreCase))
+                && order.ConfirmedAt == null)
+            {
+                order.ConfirmedAt = DateTime.Now;
+            }
+
             await _context.SaveChangesAsync();
 
             TempData["Success"] = $"Đã cập nhật trạng thái đơn #{order.OrderId}";
@@ -227,7 +236,7 @@ namespace SweetCakeShop.Controllers
                     ingredient.Quantity = Math.Round(ingredient.Quantity - required, 2, MidpointRounding.AwayFromZero);
                 }
 
-                order.Status = "Confirmed";
+                OrderStatuses.ApplyConfirmed(order);
 
                 await _context.SaveChangesAsync();
                 await tx.CommitAsync();
@@ -831,6 +840,85 @@ namespace SweetCakeShop.Controllers
             await imageFile.CopyToAsync(stream);
 
             return $"/uploads/products/{fileName}";
+        }
+
+        #endregion
+
+        #region Coupons
+
+        [HttpGet]
+        public async Task<IActionResult> Coupons()
+        {
+            var coupons = await _couponService.GetAllCouponsAsync();
+            return View(coupons);
+        }
+
+        [HttpGet]
+        public IActionResult CreateCoupon()
+        {
+            var model = new AdminCouponViewModel
+            {
+                ValidFrom = DateTime.Now,
+                ValidTo = DateTime.Now.AddDays(30),
+                MaxUsagePerUser = 1
+            };
+            return View(model);
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> CreateCoupon(AdminCouponViewModel model)
+        {
+            if (!ModelState.IsValid)
+                return View(model);
+
+            var coupon = new Coupon
+            {
+                Code = model.Code,
+                Description = model.Description,
+                DiscountType = model.DiscountType,
+                DiscountValue = model.DiscountValue,
+                MinOrderAmount = model.MinOrderAmount,
+                MaxDiscountAmount = model.MaxDiscountAmount,
+                ValidFrom = model.ValidFrom,
+                ValidTo = model.ValidTo,
+                MaxUsageCount = model.MaxUsageCount,
+                MaxUsagePerUser = model.MaxUsagePerUser,
+                IsActive = model.IsActive,
+                Scope = model.Scope,
+                ScopeCategoryId = model.ScopeCategoryId,
+                ScopeProductId = model.ScopeProductId
+            };
+
+            await _couponService.CreateAsync(coupon);
+            TempData["Success"] = "Tạo mã giảm giá thành công!";
+            return RedirectToAction(nameof(Coupons));
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> DeleteCoupon(int id)
+        {
+            var result = await _couponService.DeleteAsync(id);
+            if (result)
+                TempData["Success"] = "Xóa mã giảm giá thành công!";
+            else
+                TempData["Error"] = "Không thể xóa mã giảm giá.";
+                
+            return RedirectToAction(nameof(Coupons));
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> ToggleCouponStatus(int id)
+        {
+            var result = await _couponService.ToggleActiveAsync(id);
+            if (result)
+                TempData["Success"] = "Cập nhật trạng thái thành công!";
+            else
+                TempData["Error"] = "Có lỗi xảy ra.";
+                
+            return RedirectToAction(nameof(Coupons));
         }
 
         #endregion

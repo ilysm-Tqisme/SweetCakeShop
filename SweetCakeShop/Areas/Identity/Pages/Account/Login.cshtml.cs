@@ -1,4 +1,4 @@
-﻿// Licensed to the .NET Foundation under one or more agreements.
+// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 #nullable disable
 
@@ -14,6 +14,7 @@ using Microsoft.AspNetCore.Identity.UI.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.Extensions.Logging;
+using SweetCakeShop.Services.Chat;
 
 namespace SweetCakeShop.Areas.Identity.Pages.Account
 {
@@ -103,7 +104,9 @@ namespace SweetCakeShop.Areas.Identity.Pages.Account
             ReturnUrl = returnUrl;
         }
 
-        public async Task<IActionResult> OnPostAsync(string returnUrl = null)
+        public async Task<IActionResult> OnPostAsync(
+            string returnUrl = null,
+            [FromServices] IChatTokenMergeService? chatMerge = null)
         {
             returnUrl ??= Url.Content("~/");
 
@@ -130,6 +133,33 @@ namespace SweetCakeShop.Areas.Identity.Pages.Account
                             ExpiresUtc = Input.RememberMe ? DateTimeOffset.UtcNow.AddYears(100) : (DateTimeOffset?)null
                         };
                         await _signInManager.SignInAsync(user, authProps);
+
+                        if (chatMerge != null)
+                            await chatMerge.MergeOnLoginAsync(user.Id);
+
+                        var dbCartService = HttpContext.RequestServices.GetService(typeof(SweetCakeShop.Services.IDbCartService)) as SweetCakeShop.Services.IDbCartService;
+                        var notifService = HttpContext.RequestServices.GetService(typeof(SweetCakeShop.Services.INotificationService)) as SweetCakeShop.Services.INotificationService;
+                        var sessionCartService = HttpContext.RequestServices.GetService(typeof(SweetCakeShop.Services.CartService)) as SweetCakeShop.Services.CartService;
+                        
+                        if (dbCartService != null && notifService != null && sessionCartService != null)
+                        {
+                            var sessionCart = sessionCartService.GetCart();
+                            if (sessionCart.Items.Count > 0)
+                            {
+                                int mergedItems = sessionCart.Items.Count;
+                                await dbCartService.MergeSessionCartAsync(user.Id, sessionCart);
+                                sessionCartService.ClearCart();
+
+                                await notifService.CreateAsync(
+                                    user.Id,
+                                    null,
+                                    "CartMerged",
+                                    "Giỏ hàng đã được đồng bộ",
+                                    $"Chúng tôi đã tìm thấy {mergedItems} sản phẩm bạn chọn trước khi đăng nhập và đã thêm vào giỏ hàng của bạn.",
+                                    null
+                                );
+                            }
+                        }
                     }
 
                     // THÊM DÒNG NÀY ĐỂ KÍCH HOẠT THÔNG BÁO

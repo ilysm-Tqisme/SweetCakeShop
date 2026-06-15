@@ -1,0 +1,40 @@
+<button type="button" class="ai-chat-fab" id="adminChatFab" title="Trợ lý AI Admin">✨</button>
+
+<div class="ai-chat-panel" id="adminChatPanel">
+    <div class="ai-chat-header d-flex justify-content-between align-items-center">
+        <div>
+            <div class="fw-semibold">SweetCakeShop AI</div>
+            <small class="opacity-75">Phân tích kinh doanh thông minh</small>
+        </div>
+        <button type="button" class="btn-close btn-close-white btn-sm" id="adminChatClose"></button>
+    </div>
+    <div class="ai-chat-messages" id="adminChatMessages">
+        <div class="ai-msg bot">
+            <div class="small text-muted mb-1">Trợ lý</div>
+            <div class="bubble">Chào admin! Hỏi tôi về doanh thu, đơn hàng, sản phẩm bán chạy, tồn kho — tôi hiểu câu hỏi tự nhiên bằng tiếng Việt.</div>
+        </div>
+    </div>
+    <div id="adminChatToken" class="d-none">@Html.AntiForgeryToken()</div>
+    <div class="ai-chat-input-area">
+        <input type="text" id="adminChatInput" class="form-control form-control-sm rounded-pill" maxlength="2000"
+               placeholder="VD: Hôm nay bán được bao nhiêu? Bánh nào bán chạy?" autocomplete="off" />
+        <button type="button" class="btn btn-scs-pink btn-sm rounded-pill px-3" id="adminChatSend">Gửi</button>
+    </div>
+</div>
+
+<script src="~/js/ai-chat.js" asp-append-version="true"></script>
+<script>
+    SweetCakeAiChat({
+        fabId: 'adminChatFab',
+        panelId: 'adminChatPanel',
+        closeId: 'adminChatClose',
+        inputId: 'adminChatInput',
+        sendId: 'adminChatSend',
+        messagesId: 'adminChatMessages',
+        tokenSelector: '#adminChatToken input[name="__RequestVerificationToken"]',
+        sendUrl: '/api/Chat/admin',
+        useJsonApi: true,
+        useAdminPayload: true,
+        typingId: 'adminTypingIndicator'
+    });
+</script>

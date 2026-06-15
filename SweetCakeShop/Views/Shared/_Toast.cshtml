@@ -1,9 +1,3 @@
-﻿@*
-    For more information on enabling MVC for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
-*@
-@{
-}
-
 <div aria-live="polite" aria-atomic="true" class="position-fixed top-0 end-0 p-3" style="z-index: 1080;">
     <div id="toast-container"></div>
 </div>
@@ -11,7 +5,7 @@
 <script>
     function showToast(message, type = 'info', delay = 3000) {
         // type: 'info', 'success', 'danger', 'warning'
-        const toastId = 't' + Date.now();
+        const toastId = 't' + Date.now() + Math.floor(Math.random() * 1000);
         const colorClass = {
             info: 'bg-info text-white',
             success: 'bg-success text-white',
@@ -32,7 +26,6 @@
         document.getElementById('toast-container')?.appendChild(wrapper);
 
         var toastEl = document.getElementById(toastId);
-        // Ensure bootstrap JS is loaded (layout already includes bootstrap.bundle)
         var toast = new bootstrap.Toast(toastEl);
         toast.show();
 
@@ -40,4 +33,39 @@
             toastEl.remove();
         });
     }
+
+    // Auto-show TempData messages
+    document.addEventListener('DOMContentLoaded', () => {
+        @if (TempData["Success"] != null)
+        {
+            <text>showToast('@Html.Raw(TempData["Success"]?.ToString()?.Replace("'", "\\'"))', 'success', 5000);</text>
+        }
+        @if (TempData["Error"] != null)
+        {
+            <text>showToast('@Html.Raw(TempData["Error"]?.ToString()?.Replace("'", "\\'"))', 'danger', 5000);</text>
+        }
+        @if (TempData["Warning"] != null)
+        {
+            <text>showToast('@Html.Raw(TempData["Warning"]?.ToString()?.Replace("'", "\\'"))', 'warning', 5000);</text>
+        }
+        @if (TempData["Info"] != null)
+        {
+            <text>showToast('@Html.Raw(TempData["Info"]?.ToString()?.Replace("'", "\\'"))', 'info', 5000);</text>
+        }
+
+        // Fetch DB Notifications once after 2 seconds
+        setTimeout(() => {
+            fetch('/api/notifications/unread')
+                .then(r => r.json())
+                .then(data => {
+                    if (data && data.length > 0) {
+                        data.forEach(n => {
+                            showToast(`<strong>${n.title}</strong><br/>${n.message}`, 'info', 7000);
+                            // Mark as read after showing
+                            fetch(`/api/notifications/mark-read/${n.notificationId}`, { method: 'POST' });
+                        });
+                    }
+                }).catch(e => console.log('Notification fetch err:', e));
+        }, 2000);
+    });
 </script>

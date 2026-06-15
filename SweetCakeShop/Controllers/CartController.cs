@@ -1,5 +1,6 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using SweetCakeShop.Constants;
 using SweetCakeShop.Data;
 using SweetCakeShop.Services;
 using SweetCakeShop.Models;
@@ -9,68 +10,189 @@ using System.Security.Claims;
 using Stripe.Checkout;
 using Stripe;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Http;
+using Newtonsoft.Json;
 
 namespace SweetCakeShop.Controllers
 {
     public class CartController : Controller
     {
         private readonly ApplicationDbContext _context;
-        private readonly CartService _cartService;
+        private readonly CartService _sessionCartService; // Kept for anonymous users
+        private readonly IDbCartService _dbCartService;   // New for authenticated users
         private readonly OrderService _orderService;
         private readonly IPaymentService _paymentService;
+        private readonly ICouponService _couponService;
+        private readonly INotificationService _notificationService;
 
-        public CartController(ApplicationDbContext context, CartService cartService, OrderService orderService, IPaymentService paymentService)
+        public CartController(
+            ApplicationDbContext context, 
+            CartService sessionCartService, 
+            IDbCartService dbCartService,
+            OrderService orderService, 
+            IPaymentService paymentService,
+            ICouponService couponService,
+            INotificationService notificationService)
         {
             _context = context;
-            _cartService = cartService;
+            _sessionCartService = sessionCartService;
+            _dbCartService = dbCartService;
             _orderService = orderService;  
             _paymentService = paymentService;
+            _couponService = couponService;
+            _notificationService = notificationService;
         }
 
-        public IActionResult Index()
+        private async Task<CartViewModel> GetCurrentCartAsync()
         {
-            var cart = _cartService.GetCart();
+            if (User.Identity?.IsAuthenticated == true)
+            {
+                string userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
+                return await _dbCartService.GetCartAsync(userId);
+            }
+            return _sessionCartService.GetCart();
+        }
+
+        public async Task<IActionResult> Index()
+        {
+            var cart = await GetCurrentCartAsync();
+            
+            // Restore coupon info from session if present
+            var couponJson = HttpContext.Session.GetString("AppliedCoupon");
+            if (!string.IsNullOrEmpty(couponJson))
+            {
+                var appliedCoupon = JsonConvert.DeserializeObject<CouponValidationResult>(couponJson);
+                if (appliedCoupon != null && appliedCoupon.IsValid)
+                {
+                    // Revalidate coupon against current cart subtotal
+                    var subtotal = cart.Items.Sum(i => i.Price * i.Quantity);
+                    var userId = User.Identity?.IsAuthenticated == true ? User.FindFirstValue(ClaimTypes.NameIdentifier)! : "";
+                    
+                    var revalidation = await _couponService.ValidateAsync(appliedCoupon.Coupon!.Code, subtotal, userId, cart.Items);
+                    if (revalidation.IsValid)
+                    {
+                        cart.CouponCode = revalidation.Coupon?.Code;
+                        cart.DiscountAmount = revalidation.DiscountAmount;
+                    }
+                    else
+                    {
+                        HttpContext.Session.Remove("AppliedCoupon");
+                        TempData["Warning"] = "Mã giảm giá đã bị loại bỏ vì giỏ hàng không còn đủ điều kiện: " + revalidation.Message;
+                    }
+                }
+            }
+
             return View(cart);
         }
 
         [HttpPost]
-        public IActionResult Add(int id, int quantity = 1)
+        public async Task<IActionResult> Add(int id, int quantity = 1)
         {
-            var product = _context.Products.Find(id);
+            var product = await _context.Products.FindAsync(id);
             if (product == null)
                 return NotFound();
 
-            _cartService.AddToCart(product, quantity);
+            if (User.Identity?.IsAuthenticated == true)
+            {
+                string userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
+                await _dbCartService.AddToCartAsync(userId, id, quantity);
+                await _notificationService.CreateAsync(userId, null, "add_to_cart", "Đã thêm vào giỏ", $"{product.ProductName} đã thêm vào giỏ hàng!");
+            }
+            else
+            {
+                _sessionCartService.AddToCart(product, quantity);
+                await _notificationService.CreateAsync(null, HttpContext.Session.Id, "add_to_cart", "Đã thêm vào giỏ", $"{product.ProductName} đã thêm vào giỏ hàng!");
+            }
 
             return Json(new { success = true, message = $"{product.ProductName} đã thêm vào giỏ hàng!" });
         }
 
         [HttpPost]
-        public IActionResult Update(int productId, int quantity)
+        public async Task<IActionResult> Update(int productId, int quantity)
         {
-            _cartService.UpdateQuantity(productId, quantity);
+            if (User.Identity?.IsAuthenticated == true)
+            {
+                string userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
+                await _dbCartService.UpdateQuantityAsync(userId, productId, quantity);
+            }
+            else
+            {
+                _sessionCartService.UpdateQuantity(productId, quantity);
+            }
             return RedirectToAction("Index");
         }
 
         [HttpPost]
-        public IActionResult Remove(int productId)
+        public async Task<IActionResult> Remove(int productId)
         {
-            _cartService.RemoveFromCart(productId);
+            if (User.Identity?.IsAuthenticated == true)
+            {
+                string userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
+                await _dbCartService.RemoveFromCartAsync(userId, productId);
+            }
+            else
+            {
+                _sessionCartService.RemoveFromCart(productId);
+            }
             return RedirectToAction("Index");
         }
 
         [HttpGet]
-        public IActionResult Count()
+        public async Task<IActionResult> Count()
         {
-            var count = _cartService.GetCart().Items.Sum(i => i.Quantity);
+            int count;
+            if (User.Identity?.IsAuthenticated == true)
+            {
+                string userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
+                count = await _dbCartService.GetItemCountAsync(userId);
+            }
+            else
+            {
+                count = _sessionCartService.GetCart().Items.Sum(i => i.Quantity);
+            }
             return Json(new { count });
+        }
+
+        // Apply coupon to cart
+        [HttpPost]
+        public async Task<IActionResult> ApplyCoupon(string code)
+        {
+            var cart = await GetCurrentCartAsync();
+            var subtotal = cart.Items.Sum(i => i.Price * i.Quantity);
+            var userId = User.Identity?.IsAuthenticated == true ? User.FindFirstValue(ClaimTypes.NameIdentifier)! : "";
+
+            var result = await _couponService.ValidateAsync(code, subtotal, userId, cart.Items);
+
+            if (result.IsValid)
+            {
+                HttpContext.Session.SetString("AppliedCoupon", JsonConvert.SerializeObject(result));
+                TempData["Success"] = result.Message;
+                await _notificationService.CreateAsync(
+                    User.Identity?.IsAuthenticated == true ? userId : null,
+                    User.Identity?.IsAuthenticated == true ? null : HttpContext.Session.Id,
+                    "discount_applied", "Áp dụng mã thành công", $"Giảm {result.DiscountAmount:N0}₫ cho đơn hàng.");
+                return Json(new { success = true, message = result.Message });
+            }
+            else
+            {
+                return Json(new { success = false, message = result.Message });
+            }
+        }
+
+        // Remove applied coupon
+        [HttpPost]
+        public IActionResult RemoveCoupon()
+        {
+            HttpContext.Session.Remove("AppliedCoupon");
+            TempData["Success"] = "Đã bỏ mã giảm giá.";
+            return Json(new { success = true });
         }
 
         // Show checkout with shipping form
         [HttpGet]
-        public IActionResult Checkout()
+        public async Task<IActionResult> Checkout()
         {
-            var cart = _cartService.GetCart();
+            var cart = await GetCurrentCartAsync();
             if (!cart.Items.Any())
                 return RedirectToAction("Index");
 
@@ -87,8 +209,20 @@ namespace SweetCakeShop.Controllers
             // Prefill when logged in
             model.CustomerEmail = User.FindFirstValue(ClaimTypes.Email) ?? string.Empty;
             model.CustomerName = User.Identity?.Name ?? string.Empty;
-
+            
+            var couponJson = HttpContext.Session.GetString("AppliedCoupon");
+            if (!string.IsNullOrEmpty(couponJson))
+            {
+                var appliedCoupon = JsonConvert.DeserializeObject<CouponValidationResult>(couponJson);
+                if (appliedCoupon != null && appliedCoupon.IsValid)
+                {
+                    cart.CouponCode = appliedCoupon.Coupon?.Code;
+                    cart.DiscountAmount = appliedCoupon.DiscountAmount;
+                }
+            }
+            
             ViewData["Cart"] = cart;
+
             return View(model);
         }
 
@@ -97,7 +231,7 @@ namespace SweetCakeShop.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> CheckoutConfirm(CheckoutViewModel checkout)
         {
-            var cart = _cartService.GetCart();
+            var cart = await GetCurrentCartAsync();
             if (!cart.Items.Any())
                 return RedirectToAction("Index");
 
@@ -105,9 +239,48 @@ namespace SweetCakeShop.Controllers
             if (User.Identity?.IsAuthenticated == true)
                 userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
 
+            // Re-validate coupon right before checkout
+            CouponValidationResult? appliedCoupon = null;
+            var couponJson = HttpContext.Session.GetString("AppliedCoupon");
+            if (!string.IsNullOrEmpty(couponJson))
+            {
+                var cachedCoupon = JsonConvert.DeserializeObject<CouponValidationResult>(couponJson);
+                if (cachedCoupon != null && cachedCoupon.IsValid && cachedCoupon.Coupon != null)
+                {
+                    var subtotal = cart.Items.Sum(i => i.Price * i.Quantity);
+                    var revalidation = await _couponService.ValidateAsync(cachedCoupon.Coupon.Code, subtotal, userId ?? "", cart.Items);
+                    if (revalidation.IsValid)
+                    {
+                        appliedCoupon = revalidation;
+                    }
+                }
+            }
+
             var order = await _orderService.CreateOrderAsync(cart, checkout, userId);
 
-            _cartService.ClearCart();
+            // Apply coupon to order
+            if (appliedCoupon != null && appliedCoupon.Coupon != null)
+            {
+                order.CouponId = appliedCoupon.Coupon.CouponId;
+                order.CouponCode = appliedCoupon.Coupon.Code;
+                order.DiscountAmount = appliedCoupon.DiscountAmount;
+                order.TotalPrice = Math.Max(0, order.TotalPrice - appliedCoupon.DiscountAmount);
+                
+                await _context.SaveChangesAsync();
+                await _couponService.RecordUsageAsync(appliedCoupon.Coupon.CouponId, userId ?? "", order.OrderId, appliedCoupon.DiscountAmount);
+            }
+
+            // Clear cart
+            if (User.Identity?.IsAuthenticated == true)
+            {
+                await _dbCartService.ClearCartAsync(userId!);
+            }
+            else
+            {
+                _sessionCartService.ClearCart();
+            }
+            
+            HttpContext.Session.Remove("AppliedCoupon");
 
             // After creating order, redirect to Payment selection page
             return RedirectToAction("Payment", new { orderId = order.OrderId });
@@ -145,7 +318,7 @@ namespace SweetCakeShop.Controllers
 
             if (method == "COD")
             {
-                order.Status = "Confirmed"; // or "PendingPayment" as you prefer for COD
+                OrderStatuses.ApplyConfirmed(order);
                 await _context.SaveChangesAsync();
 
                 return RedirectToAction("Success", new { orderId = order.OrderId });
@@ -238,7 +411,7 @@ namespace SweetCakeShop.Controllers
 
                     if (session != null && session.PaymentStatus == "paid")
                     {
-                        order.Status = "Confirmed";
+                        OrderStatuses.ApplyConfirmed(order);
                         await _context.SaveChangesAsync();
                     }
                     else

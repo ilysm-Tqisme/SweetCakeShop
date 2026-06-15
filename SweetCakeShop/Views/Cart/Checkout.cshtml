@@ -1,4 +1,4 @@
-﻿@model SweetCakeShop.Models.ViewModels.CheckoutViewModel
+@model SweetCakeShop.Models.ViewModels.CheckoutViewModel
 @using SweetCakeShop.Models.ViewModels
 
 @{
@@ -61,8 +61,21 @@
                 </tbody>
                 <tfoot>
                     <tr>
-                        <td colspan="3" class="text-end fw-bold">Tổng cộng:</td>
+                        <td colspan="3" class="text-end fw-bold">Tạm tính:</td>
                         <td class="fw-bold">@cart.TotalAmount.ToString("N0") ₫</td>
+                    </tr>
+                    @if (!string.IsNullOrEmpty(cart.CouponCode))
+                    {
+                        <tr>
+                            <td colspan="3" class="text-end fw-bold text-success">
+                                Mã giảm giá (@cart.CouponCode):
+                            </td>
+                            <td class="fw-bold text-success">-@cart.DiscountAmount.ToString("N0") ₫</td>
+                        </tr>
+                    }
+                    <tr>
+                        <td colspan="3" class="text-end fw-bold fs-5">Tổng cộng:</td>
+                        <td class="fw-bold fs-5 text-pink">@((cart.TotalAmount - cart.DiscountAmount).ToString("N0")) ₫</td>
                     </tr>
                 </tfoot>
             </table>

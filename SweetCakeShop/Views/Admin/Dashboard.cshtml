@@ -1,5 +1,65 @@
-﻿@{
+﻿@model SweetCakeShop.Models.ViewModels.RevenueStatisticsViewModel
+@{
     Layout = "_AdminLayout";
+    ViewData["Title"] = "Revenue Dashboard";
 }
 
-<h2>Welcome...</h2>
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="mb-1">Revenue Statistics</h2>
+        <p class="text-muted mb-0">Revenue is calculated from confirmed orders using <strong>ConfirmedAt</strong>.</p>
+    </div>
+    <span class="badge text-bg-success">Live</span>
+</div>
+
+<div class="row g-3 g-lg-4">
+    <div class="col-12 col-sm-6 col-xl-4">
+        <div class="card border-0 shadow-sm rounded-4 h-100">
+            <div class="card-body">
+                <div class="text-muted small">Today Revenue</div>
+                <div class="display-6 fw-bold text-primary">@Model.TodayRevenue.ToString("N0") đ</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-12 col-sm-6 col-xl-4">
+        <div class="card border-0 shadow-sm rounded-4 h-100">
+            <div class="card-body">
+                <div class="text-muted small">Week Revenue</div>
+                <div class="display-6 fw-bold text-success">@Model.WeeklyRevenue.ToString("N0") đ</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-12 col-sm-6 col-xl-4">
+        <div class="card border-0 shadow-sm rounded-4 h-100">
+            <div class="card-body">
+                <div class="text-muted small">Month Revenue</div>
+                <div class="display-6 fw-bold text-info">@Model.MonthlyRevenue.ToString("N0") đ</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-12 col-sm-6 col-xl-4">
+        <div class="card border-0 shadow-sm rounded-4 h-100">
+            <div class="card-body">
+                <div class="text-muted small">Year Revenue</div>
+                <div class="display-6 fw-bold text-warning">@Model.YearlyRevenue.ToString("N0") đ</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-12 col-sm-6 col-xl-4">
+        <div class="card border-0 shadow-sm rounded-4 h-100">
+            <div class="card-body">
+                <div class="text-muted small">Total Orders</div>
+                <div class="display-6 fw-bold">@Model.TotalOrders</div>
+                <div class="text-muted small mt-1">Confirmed / completed orders only</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-12 col-sm-6 col-xl-4">
+        <div class="card border-0 shadow-sm rounded-4 h-100">
+            <div class="card-body">
+                <div class="text-muted small">Average Order Value</div>
+                <div class="display-6 fw-bold text-danger">@Model.AverageOrderValue.ToString("N0") đ</div>
+            </div>
+        </div>
+    </div>
+</div>

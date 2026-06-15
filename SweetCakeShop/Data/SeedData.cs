@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using SweetCakeShop.Constants;
 using SweetCakeShop.Models;
 
 namespace SweetCakeShop.Data
@@ -265,6 +266,20 @@ namespace SweetCakeShop.Data
                 };
 
                 context.Recipes.AddRange(recipes);
+                context.SaveChanges();
+            }
+
+            var ordersNeedingConfirmedAt = context.Orders
+                .Where(o => o.ConfirmedAt == null && OrderStatuses.RevenueEligibleStatuses.Contains(o.Status))
+                .ToList();
+
+            if (ordersNeedingConfirmedAt.Count > 0)
+            {
+                foreach (var order in ordersNeedingConfirmedAt)
+                {
+                    order.ConfirmedAt = order.OrderDate;
+                }
+
                 context.SaveChanges();
             }
 

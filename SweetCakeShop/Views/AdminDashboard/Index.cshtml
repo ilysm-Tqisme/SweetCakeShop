@@ -1,0 +1,209 @@
+@model SweetCakeShop.Models.ViewModels.RevenueDashboardViewModel
+@using SweetCakeShop.Constants
+@{
+    Layout = "_AdminLayout";
+    ViewData["Title"] = "Analytics Dashboard";
+    var f = Model.ActiveFilter;
+}
+
+<div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-2">
+    <div>
+        <h2 class="fw-bold mb-1">Revenue Analytics</h2>
+        <p class="text-muted mb-0">Doanh thu tính theo <strong>ConfirmedAt</strong> — chỉ đơn Confirmed / Completed</p>
+    </div>
+    <div class="d-flex gap-2">
+        <a asp-action="ExportExcel" asp-route-filter="@f" asp-route-from="@Model.RangeStart.ToString("yyyy-MM-dd")" asp-route-to="@Model.RangeEnd.ToString("yyyy-MM-dd")"
+           class="btn btn-outline-success btn-sm">Excel</a>
+        <a asp-action="ExportPdf" asp-route-filter="@f" asp-route-from="@Model.RangeStart.ToString("yyyy-MM-dd")" asp-route-to="@Model.RangeEnd.ToString("yyyy-MM-dd")"
+           class="btn btn-outline-danger btn-sm">PDF</a>
+    </div>
+</div>
+
+<div class="filter-pills d-flex flex-wrap gap-2 mb-4">
+    @{
+        var filters = new[] {
+            (RevenueDateFilter.Today, "Hôm nay"),
+            (RevenueDateFilter.Yesterday, "Hôm qua"),
+            (RevenueDateFilter.Last7Days, "7 ngày"),
+            (RevenueDateFilter.Last30Days, "30 ngày"),
+            (RevenueDateFilter.ThisMonth, "Tháng này"),
+            (RevenueDateFilter.ThisYear, "Năm nay")
+        };
+    }
+    @foreach (var item in filters)
+    {
+        <a asp-action="Index" asp-route-filter="@item.Item1"
+           class="btn btn-sm @(f == item.Item1 ? "btn-scs-pink active" : "btn-outline-secondary")">@item.Item2</a>
+    }
+</div>
+
+<form method="get" class="row g-2 align-items-end mb-4">
+    <input type="hidden" name="filter" value="@RevenueDateFilter.Custom" />
+    <div class="col-auto">
+        <label class="form-label small">Từ ngày</label>
+        <input type="date" name="from" class="form-control form-control-sm" value="@Model.RangeStart.ToString("yyyy-MM-dd")" />
+    </div>
+    <div class="col-auto">
+        <label class="form-label small">Đến ngày</label>
+        <input type="date" name="to" class="form-control form-control-sm" value="@Model.RangeEnd.ToString("yyyy-MM-dd")" />
+    </div>
+    <div class="col-auto">
+        <button type="submit" class="btn btn-scs-pink btn-sm">Lọc tùy chọn</button>
+    </div>
+    <div class="col-auto text-muted small align-self-center">@Model.FilterLabel — @Model.FilteredRevenue.ToString("N0") đ</div>
+</form>
+
+<div class="row g-3 mb-4">
+    <div class="col-6 col-lg-4 col-xl-2">
+        <div class="card stat-card pink-accent h-100"><div class="card-body">
+            <div class="text-muted small">Hôm nay</div>
+            <div class="stat-value text-primary">@Model.RevenueToday.ToString("N0")<small class="fs-6">đ</small></div>
+        </div></div>
+    </div>
+    <div class="col-6 col-lg-4 col-xl-2">
+        <div class="card stat-card pink-accent h-100"><div class="card-body">
+            <div class="text-muted small">Tuần</div>
+            <div class="stat-value text-success">@Model.RevenueThisWeek.ToString("N0")<small class="fs-6">đ</small></div>
+        </div></div>
+    </div>
+    <div class="col-6 col-lg-4 col-xl-2">
+        <div class="card stat-card pink-accent h-100"><div class="card-body">
+            <div class="text-muted small">Tháng</div>
+            <div class="stat-value text-info">@Model.RevenueThisMonth.ToString("N0")<small class="fs-6">đ</small></div>
+        </div></div>
+    </div>
+    <div class="col-6 col-lg-4 col-xl-2">
+        <div class="card stat-card pink-accent h-100"><div class="card-body">
+            <div class="text-muted small">Năm</div>
+            <div class="stat-value text-warning">@Model.RevenueThisYear.ToString("N0")<small class="fs-6">đ</small></div>
+        </div></div>
+    </div>
+    <div class="col-6 col-lg-4 col-xl-2">
+        <div class="card stat-card pink-accent h-100"><div class="card-body">
+            <div class="text-muted small">Đơn xác nhận</div>
+            <div class="stat-value">@Model.TotalConfirmedOrders</div>
+        </div></div>
+    </div>
+    <div class="col-6 col-lg-4 col-xl-2">
+        <div class="card stat-card pink-accent h-100"><div class="card-body">
+            <div class="text-muted small">TB / đơn</div>
+            <div class="stat-value text-danger">@Model.AverageOrderValue.ToString("N0")<small class="fs-6">đ</small></div>
+        </div></div>
+    </div>
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-lg-8">
+        <div class="card chart-card"><div class="card-body">
+            <h6 class="fw-semibold mb-3">Doanh thu theo ngày</h6>
+            <canvas id="revenueLineChart" height="120"></canvas>
+        </div></div>
+    </div>
+    <div class="col-lg-4">
+        <div class="card chart-card"><div class="card-body">
+            <h6 class="fw-semibold mb-3">Trạng thái đơn</h6>
+            <canvas id="orderPieChart" height="200"></canvas>
+        </div></div>
+    </div>
+    <div class="col-lg-6">
+        <div class="card chart-card"><div class="card-body">
+            <h6 class="fw-semibold mb-3">Doanh thu theo tháng (@DateTime.Now.Year)</h6>
+            <canvas id="monthlyBarChart" height="140"></canvas>
+        </div></div>
+    </div>
+    <div class="col-lg-6">
+        <div class="card chart-card"><div class="card-body">
+            <h6 class="fw-semibold mb-3">Top sản phẩm</h6>
+            <canvas id="topProductsChart" height="140"></canvas>
+        </div></div>
+    </div>
+</div>
+
+<div class="row g-3">
+    <div class="col-lg-7">
+        <div class="card chart-card"><div class="card-body">
+            <h6 class="fw-semibold mb-3">Đơn hàng gần đây</h6>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead><tr><th>#</th><th>Khách</th><th>Tổng</th><th>TT</th><th>Xác nhận</th></tr></thead>
+                    <tbody>
+                    @foreach (var o in Model.RecentOrders)
+                    {
+                        <tr>
+                            <td><a asp-controller="Admin" asp-action="OrderDetails" asp-route-orderId="@o.OrderId">@o.OrderId</a></td>
+                            <td>@o.CustomerName</td>
+                            <td>@o.TotalPrice.ToString("N0") đ</td>
+                            <td><span class="badge text-bg-light">@o.Status</span></td>
+                            <td>@(o.ConfirmedAt?.ToString("dd/MM HH:mm") ?? "-")</td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        </div></div>
+    </div>
+    <div class="col-lg-5">
+        <div class="card chart-card"><div class="card-body">
+            <h6 class="fw-semibold mb-3">Bánh bán chạy</h6>
+            @foreach (var p in Model.TopSellingProducts)
+            {
+                <div class="d-flex justify-content-between border-bottom py-2">
+                    <span>@p.ProductName</span>
+                    <span class="text-muted">@p.SoldQuantity sp · @p.TotalRevenue.ToString("N0") đ</span>
+                </div>
+            }
+            @if (!Model.TopSellingProducts.Any())
+            {
+                <p class="text-muted mb-0">Chưa có dữ liệu bán hàng.</p>
+            }
+        </div></div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    const pink = '#ff69b4';
+    const pinkLight = 'rgba(255, 105, 180, 0.2)';
+    const chartOpts = { responsive: true, animation: { duration: 800 }, plugins: { legend: { display: true } } };
+
+    new Chart(document.getElementById('revenueLineChart'), {
+        type: 'line',
+        data: {
+            labels: @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Charts.RevenueLineLabels)),
+            datasets: [{ label: 'Doanh thu (VND)', data: @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Charts.RevenueLineValues)),
+                borderColor: pink, backgroundColor: pinkLight, fill: true, tension: 0.35 }]
+        },
+        options: chartOpts
+    });
+
+    new Chart(document.getElementById('monthlyBarChart'), {
+        type: 'bar',
+        data: {
+            labels: @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Charts.MonthlyBarLabels)),
+            datasets: [{ label: 'Doanh thu', data: @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Charts.MonthlyBarValues)),
+                backgroundColor: pink }]
+        },
+        options: chartOpts
+    });
+
+    new Chart(document.getElementById('orderPieChart'), {
+        type: 'doughnut',
+        data: {
+            labels: @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Charts.OrderStatusLabels)),
+            datasets: [{ data: @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Charts.OrderStatusValues)),
+                backgroundColor: ['#ff69b4','#36a2eb','#ffce56','#4bc0c0','#9966ff','#ff9f40'] }]
+        },
+        options: { responsive: true, animation: { duration: 800 } }
+    });
+
+    new Chart(document.getElementById('topProductsChart'), {
+        type: 'bar',
+        data: {
+            labels: @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Charts.TopProductLabels)),
+            datasets: [{ label: 'Doanh thu SP', data: @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Charts.TopProductValues)),
+                backgroundColor: '#e91e8c' }]
+        },
+        options: { ...chartOpts, indexAxis: 'y' }
+    });
+</script>
+}

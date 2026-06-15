@@ -1,0 +1,33 @@
+namespace SweetCakeShop.Constants
+{
+    public enum AiIntentType
+    {
+        General,
+        GetHighestPriceProduct,
+        GetLowestPriceProduct,
+        GetTopSellingProduct,
+        GetWorstSellingProduct,
+        GetTodayRevenue,
+        GetWeeklyRevenue,
+        GetMonthlyRevenue,
+        GetYearlyRevenue,
+        GetTotalOrders,
+        GetAverageOrderValue,
+        GetRevenueSummary,
+        RecommendProduct,
+        DeliveryQuestion,
+        PaymentQuestion,
+        PromotionQuestion,
+        ProductConsultation,
+        LowInventoryProducts,
+        PendingOrders,
+        OrderStatusSummary,
+        ContactInfo,
+        OrderGuide,
+        CartAssistance,
+        ProductPriceLookup,
+        ProductTasteConsultation,
+        AddToCart,
+        TopCustomers
+    }
+}
